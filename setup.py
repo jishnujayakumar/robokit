@@ -1,7 +1,3 @@
-# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
-# This work is licensed under the MIT License.
-
-
 import os
 import requests
 import subprocess
@@ -14,8 +10,13 @@ from absl import app
 
 
 class FileFetch(install):
-
+    """
+    Custom setuptools command to fetch required files from external sources.
+    """
     def run(self):
+        """
+        Execute the command to fetch required files.
+        """
         install.run(self)
 
         # Install the dependency from the Git repository
@@ -139,6 +140,7 @@ def run_setup(argv):
         },
         package_data={'gdino_cfg': ["robokit/cfg/gdino/GroundingDINO_SwinT_OGC.py"]}
     )
+
 
 if __name__ == "__main__":
     app.run(run_setup)

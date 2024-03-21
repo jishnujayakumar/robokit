@@ -1,3 +1,7 @@
+# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
+# This work is licensed under the MIT License.
+
+
 import os
 import clip
 import torch
@@ -255,6 +259,7 @@ class DepthAnythingPredictor(DepthPredictor):
         except Exception as e:
             self.logger.error(f"Error predicting depth: {e}")
             raise e
+
 
 class ObjectPredictor(CommonContextObject):
     """

@@ -47,7 +47,7 @@ Future goals for this project include:
 
 ## Acknowledgments
 
-This project is based on the following repositories:
+This project is based on the following repositories (license check mandatory):
 - [CLIP](https://github.com/openai/CLIP)
 - [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
 - [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
@@ -56,4 +56,4 @@ This project is based on the following repositories:
 
 
 ## License
-This project is licensed under the MIT License
+This project is licensed under the MIT License. However, before using this tool please check the respective works for specific licenses.

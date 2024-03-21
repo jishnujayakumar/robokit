@@ -1,3 +1,7 @@
+# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
+# This work is licensed under the MIT License.
+
+
 import os
 import requests
 import subprocess

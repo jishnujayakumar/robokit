@@ -30,11 +30,12 @@ NameError: name '_C' is not defined
 ```
 
 ## Usage
-- SAM: [`test_sam.py`](test_sam.py)
-- GroundingDINO + SAM: [`test_gdino_sam.py`](test_gdino_sam.py)
-- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test_gdino_sam_clip.py)
-- FeatUp: [`test_featup.py`](test_featup.py)
-- Test Datasets: [`test_dataset.py`](test_dataset.py)
+- Note: All test scripts are located in the [`test`](test) directory. Place the respective test scripts in the root directory to run.
+- SAM: [`test_sam.py`](test/test_sam.py)
+- GroundingDINO + SAM: [`test_gdino_sam.py`](test/test_gdino_sam.py)
+- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test/test_gdino_sam_clip.py)
+- FeatUp: [`test_featup.py`](test/test_featup.py)
+- Test Datasets: [`test_dataset.py`](test/test_dataset.py)
   - `python test_dataset.py --gpu 0 --dataset <ocid_object_test/osd_object_test>`
 
 ## Roadmap

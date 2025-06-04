@@ -71,7 +71,8 @@ class ImageListener:
         print(intrinsics)
 
         queue_size = 1
-        slop_seconds = 0.1
+        slop_seconds = 0.3
+
         ts = message_filters.ApproximateTimeSynchronizer(
             [rgb_sub, depth_sub], queue_size, slop_seconds
         )

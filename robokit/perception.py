@@ -5,39 +5,80 @@
 #----------------------------------------------------------------------------------------------------
 
 import os
-import clip
+from pathlib import Path
 import torch
-import hydra
 import logging
 import warnings
 import numpy as np
 from PIL import Image as PILImg
 import torchvision.transforms as tvT
-from featup.util import norm, unnorm
-from featup.plotting import plot_feats
+
+try:
+    import clip
+    _CLIP_AVAILABLE = True
+except ImportError:
+    clip = None
+    _CLIP_AVAILABLE = False
+
+try:
+    import hydra
+    _HYDRA_AVAILABLE = True
+except ImportError:
+    hydra = None
+    _HYDRA_AVAILABLE = False
+try:
+    from featup.util import norm, unnorm
+    from featup.plotting import plot_feats
+    _FEATUP_AVAILABLE = True
+except ImportError:
+    norm = unnorm = plot_feats = None
+    _FEATUP_AVAILABLE = False
 from torchvision.ops import box_convert
 from huggingface_hub import hf_hub_download
-from groundingdino.models import build_model
-import groundingdino.datasets.transforms as T
-from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.inference import predict
-from groundingdino.util.utils import clean_state_dict
-# from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
-from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-from transformers import AutoImageProcessor, AutoModelForDepthEstimation
-from sam2.build_sam import build_sam2_video_predictor, build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+try:
+    from groundingdino.models import build_model
+    import groundingdino.datasets.transforms as T
+    from groundingdino.util.slconfig import SLConfig
+    from groundingdino.util.inference import predict
+    from groundingdino.util.utils import clean_state_dict
+    _GDINO_AVAILABLE = True
+except ImportError:
+    build_model = SLConfig = predict = clean_state_dict = None
+    T = None
+    _GDINO_AVAILABLE = False
+
+try:
+    from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+    _SAM_AVAILABLE = True
+except ImportError:
+    sam_model_registry = SamAutomaticMaskGenerator = SamPredictor = None
+    _SAM_AVAILABLE = False
+
+try:
+    from transformers import AutoImageProcessor, AutoModelForDepthEstimation
+    _DEPTH_ANYTHING_AVAILABLE = True
+except ImportError:
+    AutoImageProcessor = AutoModelForDepthEstimation = None
+    _DEPTH_ANYTHING_AVAILABLE = False
+try:
+    from sam2.build_sam import build_sam2_video_predictor, build_sam2
+    from sam2.sam2_image_predictor import SAM2ImagePredictor
+    _SAM2_AVAILABLE = True
+except ImportError:
+    build_sam2_video_predictor = build_sam2 = SAM2ImagePredictor = None
+    _SAM2_AVAILABLE = False
 
 from matplotlib import (patches, pyplot as plt)
 import matplotlib.cm as cm
 
 
-os.system("python setup.py build develop --user")
-os.system("pip install packaging==21.3")
 warnings.filterwarnings("ignore")
 
 # resolve pyqt5 and cv2 issue
 os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH")
+
+PKG_ROOT = Path(__file__).resolve().parent
 
 class Logger(object):
     """
@@ -169,7 +210,19 @@ class FeatUp(FeatureUpSampler):
             backbone_alias (str): Alias of the pre-trained backbone model.
             input_size (int): Input size of the images.
         """
+        if not _FEATUP_AVAILABLE:
+            raise ImportError(
+                "FeatUp support requires installing RoboKit with the 'featup' extra: "
+                "`pip install robokit[featup]`"
+            )
         super(FeatUp, self).__init__()
+        self.enabled = True
+        if not torch.cuda.is_available():
+            self.logger.warning(
+                "CUDA device not detected. FeatUp requires a GPU; FeatUp will be disabled."
+            )
+            self.enabled = False
+            return
         self.input_size = input_size
         self.backbone_alias = backbone_alias
         self.visualize_output = visualize_output
@@ -195,6 +248,9 @@ class FeatUp(FeatureUpSampler):
         Returns:
             Tuple: A tuple containing the original image tensor, backbone features, and upsampled features.
         """
+        if not getattr(self, "enabled", True):
+            self.logger.warning("FeatUp is disabled because no GPU was detected.")
+            return None, None, None
         try:
             image_tensor = image_tensor.to(self.device)
             upsampled_features = self.upsampler(image_tensor) # upsampled features using backbone features; high resolution
@@ -225,6 +281,11 @@ class DepthAnythingPredictor(DepthPredictor):
         """
         Initializes the DepthAnythingPredictor class.
         """
+        if not _DEPTH_ANYTHING_AVAILABLE:
+            raise ImportError(
+                "DepthAnythingPredictor requires the `depthany` extra: "
+                "`pip install robokit[depthany]`."
+            )
         super(DepthPredictor, self).__init__() 
         self.image_processor = AutoImageProcessor.from_pretrained("LiheYoung/depth-anything-small-hf")
         self.model = AutoModelForDepthEstimation.from_pretrained("LiheYoung/depth-anything-small-hf")
@@ -309,10 +370,20 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
     Hope is that these cropped bboxes when used with OpenAI CLIP yields good classification results.
     """
     def __init__(self):
+        if not _GDINO_AVAILABLE:
+            raise ImportError(
+                "GroundingDINOObjectPredictor requires the `gdino` extra: "
+                "`pip install robokit[gdino]`."
+            )
         super(GroundingDINOObjectPredictor, self).__init__()
         self.ckpt_repo_id = "ShilongLiu/GroundingDINO"
         self.ckpt_filenmae = "groundingdino_swint_ogc.pth"
-        self.config_file = "robokit/cfg/gdino/GroundingDINO_SwinT_OGC.py"
+        self.config_file = str(PKG_ROOT / "cfg/gdino/GroundingDINO_SwinT_OGC.py")
+        if not os.path.exists(self.config_file):
+            raise FileNotFoundError(
+                f"GroundingDINO config not found at {self.config_file}. "
+                "Ensure RoboKit is installed with package data."
+            )
         self.model = self.load_model_hf(
             self.config_file, self.ckpt_repo_id, self.ckpt_filenmae
         )
@@ -432,8 +503,19 @@ class SegmentAnythingPredictor(ObjectPredictor):
         """
         Initialize the SegmentAnythingPredictor object.
         """
+        if not _SAM_AVAILABLE:
+            raise ImportError(
+                "SegmentAnythingPredictor requires the `sam` extra: "
+                "`pip install robokit[sam]`."
+            )
         super(SegmentAnythingPredictor, self).__init__()
-        self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
+        checkpoint_path = PKG_ROOT / "ckpts/mobilesam/vit_t.pth"
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(
+                f"MobileSAM checkpoint not found at {checkpoint_path}. "
+                "Run `python setup.py install` or download the weight manually."
+            )
+        self.sam = sam_model_registry["vit_t"](checkpoint=str(checkpoint_path))
         self.mask_generator = SamAutomaticMaskGenerator(self.sam)  # generate masks for entire image
         self.sam.to(device=self.device)
         self.sam.eval()
@@ -482,9 +564,12 @@ class SegmentAnythingPredictor(ObjectPredictor):
 
 class ZeroShotClipPredictor(CommonContextObject):
     def __init__(self):
+        if not _CLIP_AVAILABLE:
+            raise ImportError(
+                "ZeroShotClipPredictor requires the `gdino` extra: "
+                "`pip install robokit[gdino]`."
+            )
         super(ZeroShotClipPredictor, self).__init__()
-        
-        # Load the CLIP model
         self.model, self.preprocess = clip.load('ViT-L/14@336px', self.device)
         self.model.eval()
 
@@ -560,6 +645,11 @@ class SAM2Predictor(ObjectPredictor):
         """
         Initializes the SAM2Predictor class and attempts to load the model.
         """
+        if not _SAM2_AVAILABLE or not _HYDRA_AVAILABLE:
+            raise ImportError(
+                "SAM2Predictor requires the `sam2` extra: "
+                "`pip install robokit[sam2]`."
+            )
         super(SAM2VideoPredictor, self).__init__()
         self.logger = logging.getLogger(__name__)        
         self.img_predictor, self.video_predictor = self._load_predictor()
@@ -575,8 +665,14 @@ class SAM2Predictor(ObjectPredictor):
         # reinit hydra with a new search path for configs
         hydra.initialize_config_module("robokit/sam2/sam2/", version_base='1.2') # Please don't change this
 
-        self.model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml" # Please don't change this
-        self.checkpoint_path = "./ckpts/samv2/sam2.1_hiera_large.pth" # Please don't change this
+        self.model_cfg = str(PKG_ROOT / "ckpts/samv2/sam2.1_hiera_l.yaml") # Please don't change this
+        self.checkpoint_path = str(PKG_ROOT / "ckpts/samv2/sam2.1_hiera_large.pth") # Please don't change this
+        for required_path in (self.model_cfg, self.checkpoint_path):
+            if not os.path.exists(required_path):
+                raise FileNotFoundError(
+                    f"SAM2 required asset not found at {required_path}. "
+                    "Run `python setup.py install` to download SAMv2 weights/configs."
+                )
 
 
     def _load_predictor(self):

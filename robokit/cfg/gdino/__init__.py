@@ -1,0 +1,1 @@
+"""GroundingDINO config namespace."""

@@ -5,15 +5,21 @@
 #----------------------------------------------------------------------------------------------------
 
 import os
-import requests
+import sys
+import logging
+import shutil
 import subprocess
+from pathlib import Path
+
 import setuptools
-from tqdm import tqdm
 from setuptools.command.install import install
 
-import logging
-from absl import app
 
+def _has_cuda_toolkit():
+    cuda_home = os.environ.get("CUDA_HOME")
+    if not cuda_home:
+        return False
+    return os.path.exists(cuda_home)
 
 class FileFetch(install):
     """
@@ -23,19 +29,31 @@ class FileFetch(install):
         """
         Execute the command to fetch required files.
         """
+        if os.environ.get("ROBOTKIT_ENABLE_FILEFETCH") != "1":
+            logging.info(
+                "ROBOTKIT_ENABLE_FILEFETCH not set to 1; skipping heavy FileFetch steps."
+            )
+            install.run(self)
+            return
         install.run(self)
 
         robokit_root_dir = os.getcwd()
 
+        requirements_file = Path(robokit_root_dir) / "requirements.txt"
+        if requirements_file.exists():
+            subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements_file)], check=True)
+
         # Install the dependency from the Git repository
-        subprocess.run([
-            "pip", "install", "-U",
-            'git+https://github.com/mhamilton723/FeatUp@c04e4c19945ce3e98a5488be948c7cc1fdcdacc6',
+        git_packages = [
             'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
             'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
-            # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
             'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed',
-        ])
+        ]
+        if _has_cuda_toolkit():
+            git_packages.append('git+https://github.com/mhamilton723/FeatUp@c04e4c19945ce3e98a5488be948c7cc6')
+        else:
+            print("WARNING: CUDA toolkit not detected. Skipping FeatUp install.")
+        subprocess.run(["pip", "install", "-U", *git_packages], check=True)
 
 
         # Step DHYOLO.1: Clone the DH-YOLO repository
@@ -153,6 +171,8 @@ class FileFetch(install):
         - Exception: If an unexpected error occurs during the download process.
         """
         try:
+            import requests
+            from tqdm import tqdm
             file_path = os.path.join(save_path, renamed_file)
 
             # Check if the file already exists
@@ -189,40 +209,82 @@ class FileFetch(install):
             raise e
 
 
-def run_setup(argv):
-    del argv
-
-    # Read requirements from requirements.txt
-    with open('requirements.txt', 'r') as f:
+# Read requirements from requirements.txt if present; otherwise fall back
+DEFAULT_REQUIREMENTS = [
+    "chardet",
+    "requests",
+    "tqdm",
+    "ftfy",
+    "regex",
+    "torch",
+    "torchvision",
+    "absl-py",
+    "open3d",
+    "scikit-image",
+    "numpy==1.26.4",
+    "supervision==0.18.0",
+    "rospkg",
+    "transforms3d",
+]
+requirements_path = Path(__file__).with_name("requirements.txt")
+if requirements_path.exists():
+    with open(requirements_path, 'r') as f:
         requirements = f.read().splitlines()
+else:
+    logging.warning("requirements.txt not found; using default dependency list.")
+    requirements = DEFAULT_REQUIREMENTS.copy()
 
-    with open("README.md", "r", encoding = "utf-8") as fh:
-        long_description = fh.read()
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
-    setuptools.setup(
-        name = "RoboKit",
-        version = "0.0.1",
-        author = "Jishnu P",
-        author_email = "jishnu.p@utdallas.edu",
-        description = "A toolkit for robotic tasks",
-        long_description = long_description,
-        long_description_content_type = "text/markdown",
-        url = "https://github.com/IRVLUTD/RoboKit",
-        classifiers = [
-            "Programming Language :: Python :: 3",
-            "License :: OSI Approved :: MIT License",
-            "Operating System :: OS Independent",
-        ],
-        package_dir = {"": "robokit"},
-        packages = setuptools.find_packages(where="robokit"),
-        python_requires = ">=3.0",
-        install_requires=requirements,
-        cmdclass={
-            'install': FileFetch,
-        },
-        package_data={'gdino_cfg': ["robokit/cfg/gdino/GroundingDINO_SwinT_OGC.py"]}
-    )
+extras = {
+    "gdino": [
+        "clip @ git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33",
+        "GroundingDINO @ git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4",
+    ],
+    "sam": [
+        "mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed",
+    ],
+    "sam2": [
+        "hydra-core>=1.3.2",
+    ],
+    "featup": [
+        "FeatUp @ git+https://github.com/mhamilton723/FeatUp@c04e4c19945ce3e98a5488be948c7cc6",
+    ],
+    "dhyolo": [
+        "ultralytics>=8.0.0",
+    ],
+    "depthany": [
+        "transformers>=4.34.1",
+    ],
+}
+if not _has_cuda_toolkit():
+    print("WARNING: CUDA toolkit not detected. Skipping automatic FeatUp install.")
+    extras["featup"] = []
 
+extras["all"] = sorted({dep for deps in extras.values() for dep in deps})
 
-if __name__ == "__main__":
-    app.run(run_setup)
+setuptools.setup(
+    name="RoboKit",
+    version="0.0.1",
+    author="Jishnu P",
+    author_email="jishnu.p@utdallas.edu",
+    description="A toolkit for robotic tasks",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/IRVLUTD/RoboKit",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    packages=setuptools.find_packages(),
+    python_requires=">=3.0",
+    install_requires=requirements,
+    cmdclass={
+        'install': FileFetch,
+    },
+    extras_require=extras,
+    include_package_data=True,
+    package_data={'robokit': ["cfg/gdino/*.py"]}
+)

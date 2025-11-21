@@ -1,5 +1,19 @@
 # 🤖 RoboKit
 <img width="" height="" alt="robokit-banner" src="https://github.com/user-attachments/assets/d12a8492-67d3-4844-9a14-f64d61490991" />
+<p align="center"><b>Strictly for academic and non-commercial use </b></p>
+
+## 📚 Citations
+If you use Robokit itself or its upstream components in academic work, please cite the toolkit and any relevant works. BibTex for Robokit:
+
+```bibtex
+@misc{p2024robokit,
+  title  = {RoboKit: A Toolkit for Robotic Perception and Manipulation},
+  author = {Jishnu Jayakumar P},
+  year   = {2024},
+  note   = {\url{https://github.com/jishnujayakumar/robokit}},
+}
+```
+
 
 ## 🚀 Projects Using RoboKit
 Chronologically listed (latest first):

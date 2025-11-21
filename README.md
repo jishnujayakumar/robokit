@@ -50,8 +50,18 @@ RoboKit relies on upstream git repositories (GroundingDINO, MobileSAM, FeatUp, e
 git clone https://github.com/IRVLUTD/robokit.git
 cd robokit
 pip install -e .
+# or configure extras via robokit.install.cfg and rerun `pip install -e .`
 # or selectively: pip install -e '.[gdino,sam2]'
 ```
+
+To use the config-based workflow, edit `robokit.install.cfg` and set the comma-separated extras you want:
+
+```
+[extras]
+include = gdino, sam2
+```
+
+Running `pip install -e .` now installs the listed extras automatically—handy for team-wide setups without long pip commands.
 
 Available extras:
 

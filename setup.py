@@ -4,11 +4,12 @@
 # 🖋️ Jishnu Jaykumar Padalunkal (2024).
 #----------------------------------------------------------------------------------------------------
 
-import os
-import sys
+import configparser
 import logging
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import setuptools
@@ -263,6 +264,35 @@ if not _has_cuda_toolkit():
     extras["featup"] = []
 
 extras["all"] = sorted({dep for deps in extras.values() for dep in deps})
+
+
+def _extras_from_config(config_path: Path) -> list[str]:
+    """Load extras to install by default from an INI-style config file."""
+    if not config_path.exists():
+        return []
+    parser = configparser.ConfigParser()
+    parser.read(config_path)
+    if not parser.has_option("extras", "include"):
+        return []
+    values = parser.get("extras", "include")
+    return [value.strip() for value in values.split(",") if value.strip()]
+
+
+config_extras = _extras_from_config(Path(__file__).with_name("robokit.install.cfg"))
+if config_extras:
+    known = []
+    unknown = []
+    for extra_name in config_extras:
+        if extra_name in extras:
+            known.append(extra_name)
+        else:
+            unknown.append(extra_name)
+    if unknown:
+        logging.warning("Unknown extras declared in robokit.install.cfg: %s", ", ".join(unknown))
+    if known:
+        logging.info("Auto-including extras from config: %s", ", ".join(known))
+        for name in known:
+            requirements.extend(extras[name])
 
 setuptools.setup(
     name="RoboKit",

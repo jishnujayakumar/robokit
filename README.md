@@ -44,20 +44,46 @@ Chronologically listed (latest first):
 - [SAMv2 requires py>=3.10.0](https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/setup.py#L171) (here the installation has been tweaked to remove this constraint)
 
 ### 🛠️ Installation
+RoboKit relies on upstream git repositories (GroundingDINO, MobileSAM, FeatUp, etc.), so the supported workflow is to clone the repository and install from source.
+
 ```sh
-# clone
-git clone https://github.com/IRVLUTD/robokit.git && cd robokit 
-
-# make sure your CUDA_HOME env var is set
-export CUDA_HOME=/usr/local/cuda
-
-# install dependencies
-pip install -r requirements.txt
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-
-# install
-python setup.py install
+git clone https://github.com/IRVLUTD/robokit.git
+cd robokit
+pip install -e .
+# or configure extras via robokit.install.cfg and rerun `pip install -e .`
+# or selectively: pip install -e '.[gdino,sam2]'
 ```
+
+To use the config-based workflow, edit `robokit.install.cfg` and set the comma-separated extras you want:
+
+```
+[extras]
+include = gdino, sam2
+```
+
+Running `pip install -e .` now installs the listed extras automatically—handy for team-wide setups without long pip commands.
+
+Available extras:
+
+| Extra      | Includes                                                                          |
+|------------|-----------------------------------------------------------------------------------|
+| `gdino`    | GroundingDINO + CLIP                                                              |
+| `sam`      | MobileSAM                                                                         |
+| `sam2`     | SAM v2 + Hydra                                                                    |
+| `depthany` | Depth Anything (Transformers)                                                     |
+| `dhyolo`   | Ultralytics + DHYOLO toolkit                                                      |
+| `featup`   | FeatUp (requires CUDA toolkit and `CUDA_HOME`)                                    |
+| `all`      | Installs every extra supported on your environment                                |
+
+**Fetching checkpoints**
+
+The default install skips large asset downloads so it works in offline/CI environments. When you need RoboKit to fetch and stage pretrained checkpoints (GDINO, MobileSAM, DHYOLO, SAMv2), rerun the install with:
+
+```sh
+ROBOTKIT_ENABLE_FILEFETCH=1 pip install -e .
+```
+
+> Checkpoints (GDINO, MobileSAM, DHYOLO, SAMv2) are downloaded when `ROBOTKIT_ENABLE_FILEFETCH=1` is set before installation (e.g., `ROBOTKIT_ENABLE_FILEFETCH=1 python setup.py install`). Without it, installations skip the heavy downloads, and you can trigger them manually later when needed. If a CUDA toolkit is not detected, the FeatUp install is skipped with a warning.
 
 🧩 Known Installation Issues
 - Check GroundingDINO [installation](https://github.com/IDEA-Research/GroundingDINO?tab=readme-ov-file#hammer_and_wrench-install) for the following error

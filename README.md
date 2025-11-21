@@ -7,7 +7,7 @@ If you use Robokit itself or its upstream components in academic work, please ci
 
 ```bibtex
 @misc{p2024robokit,
-  title  = {RoboKit: A Toolkit for Robotic Perception and Manipulation},
+  title  = {RoboKit: A toolkit for robotic tasks},
   author = {Jishnu Jayakumar P},
   year   = {2024},
   note   = {\url{https://github.com/jishnujayakumar/robokit}},

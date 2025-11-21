@@ -1,5 +1,5 @@
 # 🤖 RoboKit
-A toolkit for robotic tasks
+<img width="" height="" alt="robokit-banner" src="https://github.com/user-attachments/assets/d12a8492-67d3-4844-9a14-f64d61490991" />
 
 ## 🚀 Projects Using RoboKit
 Chronologically listed (latest first):
